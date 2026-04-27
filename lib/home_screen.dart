@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../models/api_model.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userType;
@@ -12,6 +14,12 @@ class _HomeScreenState extends State<HomeScreen> {
   int index = 0;
   String query = "";
 
+  List<ApiModel> users = [];
+  bool isLoading = true;
+
+  List<Map<String, dynamic>> posts = [];
+  final TextEditingController postController = TextEditingController();
+
   final Color primary = Color(0xFF44ACFF);
   final Color secondary = Color(0xFF647FBC);
 
@@ -22,43 +30,31 @@ class _HomeScreenState extends State<HomeScreen> {
     "skills": ["Flutter", "UI Design", "Data Analyst"],
   };
 
-  final List<Map<String, dynamic>> users = [
-    {
-      "name": "Rahma Akram",
-      "type": "Freelancer",
-      "skills": ["Design", "UI/UX", "Problem Solving"],
-      "rating": 5,
-    },
-    {
-      "name": "Sama Antar",
-      "type": "Student",
-      "skills": ["AI Engineer", "Python", "Drawing"],
-      "rating": 4,
-    },
-    {
-      "name": "Judy Mohamed",
-      "type": "Freelancer",
-      "skills": ["Graphic Design", "Content Creator", "Writing"],
-      "rating": 3,
-    },
-    {
-      "name": "Roqia Tamer",
-      "type": "Student",
-      "skills": ["Japanese", "English"],
-      "rating": 2,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    loadUsers();
+  }
 
-  List<Map<String, dynamic>> posts = [];
-  final TextEditingController postController = TextEditingController();
+  void loadUsers() async {
+    try {
+      var result = await ApiService.getUsers();
+      setState(() {
+        users = result;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final filtered = users
-        .where(
-          (u) =>
-              u["name"].toString().toLowerCase().contains(query.toLowerCase()),
-        )
+        .where((u) =>
+            u.name.toLowerCase().contains(query.toLowerCase()))
         .toList();
 
     final pages = [homePage(filtered), postsPage(), myProfilePage()];
@@ -66,14 +62,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: primary,
-
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
-
         title: Row(
           children: [
             Text(
@@ -107,9 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-
       body: pages[index],
-
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: index,
         selectedItemColor: primary,
@@ -124,7 +116,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget homePage(List<Map<String, dynamic>> users) {
+  Widget homePage(List<ApiModel> users) {
+    if (isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
+
     return ListView(
       padding: EdgeInsets.all(16),
       children: [
@@ -137,7 +133,6 @@ class _HomeScreenState extends State<HomeScreen> {
             fillColor: primary.withOpacity(0.08),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide(color: primary.withOpacity(0.2)),
             ),
           ),
         ),
@@ -156,11 +151,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget userCard(Map<String, dynamic> user) {
+  Widget userCard(ApiModel user) {
     return Card(
       child: ListTile(
-        title: Text(user["name"], style: TextStyle(color: primary)),
-        subtitle: Text(user["type"], style: TextStyle(color: secondary)),
+        title: Text(user.name, style: TextStyle(color: primary)),
+        subtitle: Text(user.username, style: TextStyle(color: secondary)),
         trailing: Icon(Icons.arrow_forward_ios, color: primary),
         onTap: () {
           Navigator.push(
@@ -216,16 +211,15 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, i) {
               return Card(
                 child: ListTile(
-                  title: Text(
-                    posts[i]["name"],
-                    style: TextStyle(color: primary),
-                  ),
+                  title: Text(posts[i]["name"],
+                      style: TextStyle(color: primary)),
                   subtitle: Text(posts[i]["text"]),
                   trailing: IconButton(
                     icon: Icon(Icons.favorite_border, color: secondary),
                     onPressed: () {
                       setState(() {
-                        posts[i]["likes"] = (posts[i]["likes"] ?? 0) + 1;
+                        posts[i]["likes"] =
+                            (posts[i]["likes"] ?? 0) + 1;
                       });
                     },
                   ),
@@ -250,9 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
             backgroundColor: primary.withOpacity(0.1),
             child: Icon(Icons.person, size: 55, color: primary),
           ),
-
           SizedBox(height: 10),
-
           Text(
             myProfile["name"],
             style: TextStyle(
@@ -261,11 +253,8 @@ class _HomeScreenState extends State<HomeScreen> {
               color: primary,
             ),
           ),
-
           Text(myProfile["type"], style: TextStyle(color: secondary)),
-
           SizedBox(height: 10),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
@@ -276,9 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-
           SizedBox(height: 20),
-
           Wrap(
             spacing: 8,
             children: (myProfile["skills"] as List)
@@ -297,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class ProfileScreen extends StatelessWidget {
-  final Map<String, dynamic> user;
+  final ApiModel user;
 
   ProfileScreen({required this.user});
 
@@ -306,11 +293,8 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int rating = user["rating"] as int;
-
     return Scaffold(
-      appBar: AppBar(title: Text(user["name"]), backgroundColor: primary),
-
+      appBar: AppBar(title: Text(user.name), backgroundColor: primary),
       body: Padding(
         padding: EdgeInsets.all(20),
         child: Column(
@@ -320,36 +304,13 @@ class ProfileScreen extends StatelessWidget {
               backgroundColor: primary.withOpacity(0.1),
               child: Icon(Icons.person, color: primary),
             ),
-
             SizedBox(height: 10),
-
-            Text(user["type"], style: TextStyle(color: secondary)),
-
-            SizedBox(height: 10),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                5,
-                (i) => Icon(
-                  i < rating ? Icons.star : Icons.star_border,
-                  color: Colors.amber,
-                ),
-              ),
-            ),
-
+            Text(user.username, style: TextStyle(color: secondary)),
             SizedBox(height: 15),
 
-            Wrap(
-              spacing: 8,
-              children: (user["skills"] as List)
-                  .map(
-                    (s) => Chip(
-                      label: Text(s.toString()),
-                      backgroundColor: primary.withOpacity(0.1),
-                    ),
-                  )
-                  .toList(),
+            ListTile(
+              leading: Icon(Icons.phone, color: primary),
+              title: Text(user.phone),
             ),
 
             SizedBox(height: 25),
@@ -362,9 +323,8 @@ class ProfileScreen extends StatelessWidget {
               icon: Icon(Icons.chat),
               label: Text("Send Message"),
               onPressed: () {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text("Opening chat")));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text("Opening chat")));
               },
             ),
 
@@ -378,9 +338,8 @@ class ProfileScreen extends StatelessWidget {
               icon: Icon(Icons.video_call),
               label: Text("Video Call"),
               onPressed: () {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text("Starting video call")));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text("Starting video call")));
               },
             ),
 
@@ -394,9 +353,8 @@ class ProfileScreen extends StatelessWidget {
               icon: Icon(Icons.swap_horiz),
               label: Text("Send Swap Request"),
               onPressed: () {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text("Swap Request Sent")));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text("Swap Request Sent")));
               },
             ),
           ],
